@@ -9,7 +9,7 @@ import { saveAs } from 'file-saver'
 export default function AdminDashboard() {
     const [submissions, setSubmissions] = useState([])
     const [loading, setLoading] = useState(true)
-    const [opStatus, setOpStatus] = useState('') // 'downloading_all', 'downloading_ppt', 'downloading_others', ''
+    const [opStatus, setOpStatus] = useState('') // 'all', 'ppt', 'others', ''
 
     const fetchSubmissions = async () => {
         setLoading(true)
@@ -20,13 +20,13 @@ export default function AdminDashboard() {
                 .order('serial_number', { ascending: true })
 
             if (error) {
-                console.error('Supabase Error:', error)
-                alert(`Error: ${error.message}\nCode: ${error.code}`)
+                console.error('Error fetching data:', error)
+                alert('Error loading submissions.')
             } else {
                 setSubmissions(data)
             }
         } catch (err) {
-            console.error('Fetch Exception:', err)
+            console.error('Exception:', err)
         }
         setLoading(false)
     }
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
             .update({ status: 'accepted' })
             .eq('id', submission.id)
 
-        if (error) return alert('Error updating status')
+        if (error) return alert('Error updating status.')
 
         const { data: publicUrl } = supabase.storage
             .from('submissions')
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
 
     const downloadZipped = async (mode) => {
         const acceptedOnly = submissions.filter(s => s.status === 'accepted')
-        if (acceptedOnly.length === 0) return alert('No accepted submissions to download')
+        if (acceptedOnly.length === 0) return alert('No accepted projects to download.')
 
         setOpStatus(mode)
         const zip = new JSZip()
@@ -64,131 +64,147 @@ export default function AdminDashboard() {
                 const folderName = `${i + 1}_${sub.team_name}_${sub.leader_name}`.replace(/[^a-z0-9_]/gi, '_')
                 const folder = zip.folder(folderName)
 
-                // 1. PPT Download (Included if mode is 'all' or 'ppt')
+                // 1. PPT Download
                 if (mode === 'all' || mode === 'ppt') {
                     const { data: pptBlob, error: pptErr } = await supabase.storage.from('submissions').download(sub.ppt_url)
                     if (!pptErr) {
                         const fileName = sub.ppt_url.split('_').slice(2).join('_')
-                        folder.file(`MAIN_PRESENTATION_${fileName}`, pptBlob)
+                        folder.file(`PPT_${fileName}`, pptBlob)
                     }
                 }
 
-                // 2. Others Download (Included if mode is 'all' or 'others')
+                // 2. Others Download
                 if (mode === 'all' || mode === 'others') {
                     for (const fileUrl of (sub.other_files_urls || [])) {
                         const { data: fileBlob, error: fileErr } = await supabase.storage.from('submissions').download(fileUrl)
                         if (!fileErr) {
                             const fileName = fileUrl.split('_').slice(2).join('_')
-                            folder.file(`SUPPORTING_${fileName}`, fileBlob)
+                            folder.file(`File_${fileName}`, fileBlob)
                         }
                     }
                 }
             }
 
             const content = await zip.generateAsync({ type: 'blob' })
-            const suffix = mode === 'ppt' ? 'PPTs_Only' : mode === 'others' ? 'Others_Only' : 'Complete'
+            const suffix = mode === 'ppt' ? 'Presentation_Files' : mode === 'others' ? 'Project_Docs' : 'All_Submission_Files'
             saveAs(content, `INOVESTA_2026_${suffix}.zip`)
         } catch (err) {
-            console.error(err)
-            alert('Error creating zip')
+            alert('Error creating zip file.')
         } finally {
             setOpStatus('')
         }
     }
 
     return (
-        <main className="min-h-screen bg-black text-white p-12">
+        <main className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-6 lg:p-16">
             <div className="max-w-7xl mx-auto">
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16 border-b border-neutral-100 dark:border-neutral-900 pb-10">
                     <div>
-                        <h1 className="text-5xl font-black premium-gradient-text tracking-tighter uppercase">Admin Panel</h1>
-                        <p className="text-gray-400 mt-2 text-lg">Event INOVESTA 2026 Submission Control</p>
+                        <h1 className="text-4xl font-bold tracking-tight mb-2 uppercase">Admin Dashboard</h1>
+                        <p className="text-neutral-500 font-medium">Manage and download event projects</p>
                     </div>
 
                     <div className="flex flex-wrap gap-4">
-                        <button onClick={fetchSubmissions} className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all">
-                            <RefreshCcw className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} />
+                        <button onClick={fetchSubmissions} className="p-3 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-950 transition-all">
+                            <RefreshCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
 
                         <button
                             disabled={!!opStatus}
                             onClick={() => downloadZipped('ppt')}
-                            className="bg-blue-600/10 border border-blue-500/20 text-blue-400 px-6 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-600 hover:text-white transition-all disabled:opacity-50"
+                            className="formal-button-outline text-sm font-bold uppercase tracking-wider disabled:opacity-30"
                         >
-                            {opStatus === 'ppt' ? <Loader2 className="animate-spin" /> : <Presentation className="w-5 h-5" />}
-                            PPTs Only
+                            {opStatus === 'ppt' ? <Loader2 className="animate-spin" /> : 'Download PPTs'}
                         </button>
 
                         <button
                             disabled={!!opStatus}
                             onClick={() => downloadZipped('others')}
-                            className="bg-purple-600/10 border border-purple-500/20 text-purple-400 px-6 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-purple-600 hover:text-white transition-all disabled:opacity-50"
+                            className="formal-button-outline text-sm font-bold uppercase tracking-wider disabled:opacity-30"
                         >
-                            {opStatus === 'others' ? <Loader2 className="animate-spin" /> : <Layers className="w-5 h-5" />}
-                            Docs Only
+                            {opStatus === 'others' ? <Loader2 className="animate-spin" /> : 'Download Files'}
                         </button>
 
                         <button
                             disabled={!!opStatus}
                             onClick={() => downloadZipped('all')}
-                            className="premium-button px-8 py-4 rounded-2xl font-black text-white shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-50 transition-all active:scale-95"
+                            className="formal-button text-sm uppercase tracking-wider"
                         >
-                            {opStatus === 'all' ? <Loader2 className="animate-spin" /> : <Download className="w-6 h-6" />}
-                            Download All
+                            {opStatus === 'all' ? <Loader2 className="animate-spin" /> : 'Download All'}
                         </button>
                     </div>
                 </header>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                    <div className="border border-neutral-100 dark:border-neutral-900 p-6 rounded-lg bg-neutral-50 dark:bg-neutral-950/50">
+                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Total Signals</p>
+                        <h4 className="text-3xl font-bold">{submissions.length}</h4>
+                    </div>
+                    <div className="border border-neutral-100 dark:border-neutral-900 p-6 rounded-lg bg-neutral-50 dark:bg-neutral-950/50">
+                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Accepted</p>
+                        <h4 className="text-3xl font-bold text-green-600 dark:text-green-500">
+                            {submissions.filter(s => s.status === 'accepted').length}
+                        </h4>
+                    </div>
+                    <div className="border border-neutral-100 dark:border-neutral-900 p-6 rounded-lg bg-neutral-50 dark:bg-neutral-950/50">
+                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Pending</p>
+                        <h4 className="text-3xl font-bold text-neutral-400">
+                            {submissions.filter(s => s.status === 'pending').length}
+                        </h4>
+                    </div>
+                </div>
+
                 {loading ? (
-                    <div className="flex flex-col justify-center items-center py-40 gap-4">
-                        <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
-                        <span className="text-gray-400 font-bold animate-pulse">Syncing Submissions...</span>
+                    <div className="flex flex-col justify-center items-center py-32 gap-4">
+                        <Loader2 className="w-10 h-10 animate-spin text-neutral-400" />
+                        <span className="text-neutral-400 font-bold uppercase tracking-widest text-xs">Loading Data...</span>
                     </div>
                 ) : (
-                    <div className="grid gap-4">
+                    <div className="space-y-4">
                         {submissions.map((sub, index) => (
-                            <div key={sub.id} className={`glass-card p-8 flex flex-col lg:flex-row items-center justify-between gap-8 transition-all hover:border-white/20 ${sub.status === 'accepted' ? 'bg-green-500/5' : ''}`}>
-                                <div className="flex gap-8 items-center w-full lg:w-auto">
-                                    <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl font-black text-gray-500">
-                                        {index + 1}
+                            <div key={sub.id} className={`formal-card p-6 flex flex-col md:flex-row items-center justify-between gap-8 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all ${sub.status === 'accepted' ? 'bg-neutral-50 dark:bg-neutral-950/30' : ''}`}>
+                                <div className="flex flex-col md:flex-row items-center gap-8 w-full md:w-auto">
+                                    <div className="w-12 h-12 border border-neutral-100 dark:border-neutral-900 rounded bg-white dark:bg-black flex items-center justify-center text-lg font-bold text-neutral-400">
+                                        {(index + 1).toString().padStart(2, '0')}
                                     </div>
-                                    <div className="flex-1">
-                                        <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                                            {sub.team_name}
-                                            {sub.status === 'accepted' && <Check className="w-6 h-6 text-green-500" />}
-                                        </h3>
-                                        <div className="flex gap-6 mt-2">
-                                            <span className="flex items-center gap-2 text-gray-400 font-medium">
-                                                <Users className="w-4 h-4 text-blue-500" /> {sub.leader_name}
+                                    <div className="text-center md:text-left space-y-1">
+                                        <div className="flex items-center justify-center md:justify-start gap-3">
+                                            <h3 className="text-xl font-bold tracking-tight">{sub.team_name}</h3>
+                                            {sub.status === 'accepted' && <Check className="w-5 h-5 text-green-500" />}
+                                        </div>
+                                        <div className="flex items-center justify-center md:justify-start gap-4">
+                                            <span className="flex items-center gap-1.5 text-neutral-500 font-medium text-sm">
+                                                <Users className="w-3 h-3" /> {sub.leader_name}
                                             </span>
-                                            <span className="bg-white/5 px-3 py-1 rounded-lg text-xs font-bold text-gray-500 uppercase tracking-widest border border-white/5">
+                                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 rounded">
                                                 ID: {sub.id.slice(0, 8)}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-8 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 border-white/5 pt-6 lg:pt-0">
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-black text-gray-500 uppercase tracking-tighter">Files Stats</p>
-                                        <div className="flex gap-4">
-                                            <span className="text-blue-500 text-sm font-bold flex items-center gap-1"><Presentation className="w-3 h-3" /> 1 PPT</span>
-                                            <span className="text-purple-500 text-sm font-bold flex items-center gap-1"><Layers className="w-3 h-3" /> {sub.other_files_urls?.length || 0} Docs</span>
+                                <div className="flex flex-col sm:flex-row items-center gap-8 w-full md:w-auto justify-end border-t md:border-t-0 border-neutral-100 dark:border-neutral-900 pt-6 md:pt-0">
+                                    <div className="flex gap-8 text-neutral-400">
+                                        <div className="text-center">
+                                            <Presentation className="w-5 h-5 mx-auto mb-1 opacity-40" />
+                                            <p className="text-[8px] font-bold uppercase tracking-widest">PPT</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <Layers className="w-5 h-5 mx-auto mb-1 opacity-40" />
+                                            <p className="text-[8px] font-bold uppercase tracking-widest">Docs ({sub.other_files_urls?.length || 0})</p>
                                         </div>
                                     </div>
 
                                     {sub.status === 'pending' ? (
                                         <button
                                             onClick={() => handleAccept(sub)}
-                                            className="bg-white text-black hover:bg-blue-500 hover:text-white px-8 py-4 rounded-2xl font-black transition-all flex items-center gap-2 shadow-lg"
+                                            className="w-full sm:w-auto formal-button py-3 text-sm px-8"
                                         >
-                                            Accept & Verify
-                                            <ExternalLink className="w-5 h-5" />
+                                            Accept Project
                                         </button>
                                     ) : (
-                                        <div className="bg-green-500 text-white px-8 py-4 rounded-2xl font-black border border-green-400 flex items-center gap-2">
-                                            Verified
-                                            <Check className="w-5 h-5" />
+                                        <div className="w-full sm:w-auto text-green-600 dark:text-green-500 font-bold uppercase text-xs tracking-widest px-8 flex items-center gap-2">
+                                            Verified Asset
                                         </div>
                                     )}
                                 </div>
@@ -196,9 +212,9 @@ export default function AdminDashboard() {
                         ))}
 
                         {submissions.length === 0 && (
-                            <div className="text-center py-40 border-2 border-dashed border-white/10 rounded-[40px] bg-white/[0.02]">
-                                <FileText className="w-24 h-24 text-gray-800 mx-auto mb-6" />
-                                <p className="text-gray-500 text-2xl font-black uppercase tracking-widest">Awaiting Innovations</p>
+                            <div className="text-center py-32 border border-dashed border-neutral-200 dark:border-neutral-800 rounded-lg">
+                                <FileText className="w-12 h-12 text-neutral-200 dark:text-neutral-800 mx-auto mb-4" />
+                                <p className="text-neutral-400 text-sm font-medium uppercase tracking-widest">No submissions found</p>
                             </div>
                         )}
                     </div>
