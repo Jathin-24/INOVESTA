@@ -61,7 +61,8 @@ export default function AdminDashboard() {
         try {
             for (let i = 0; i < acceptedOnly.length; i++) {
                 const sub = acceptedOnly[i]
-                const folderName = `${i + 1}_${sub.team_name}_${sub.leader_name}`.replace(/[^a-z0-9_]/gi, '_')
+                // NEW FORMAT: teamnumber_teamname_teamleadername
+                const folderName = `${sub.team_number}_${sub.team_name}_${sub.leader_name}`.replace(/[^a-z0-9_]/gi, '_')
                 const folder = zip.folder(folderName)
 
                 // 1. PPT Download
@@ -137,7 +138,7 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                     <div className="border border-neutral-100 dark:border-neutral-900 p-6 rounded-lg bg-neutral-50 dark:bg-neutral-950/50">
-                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Total Signals</p>
+                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Total Projects</p>
                         <h4 className="text-3xl font-bold">{submissions.length}</h4>
                     </div>
                     <div className="border border-neutral-100 dark:border-neutral-900 p-6 rounded-lg bg-neutral-50 dark:bg-neutral-950/50">
@@ -147,7 +148,7 @@ export default function AdminDashboard() {
                         </h4>
                     </div>
                     <div className="border border-neutral-100 dark:border-neutral-900 p-6 rounded-lg bg-neutral-50 dark:bg-neutral-950/50">
-                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Pending</p>
+                        <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-1">Pending Review</p>
                         <h4 className="text-3xl font-bold text-neutral-400">
                             {submissions.filter(s => s.status === 'pending').length}
                         </h4>
@@ -177,7 +178,7 @@ export default function AdminDashboard() {
                                                 <Users className="w-3 h-3" /> {sub.leader_name}
                                             </span>
                                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 rounded">
-                                                ID: {sub.id.slice(0, 8)}
+                                                Team Ref: {sub.id.slice(0, 8)}
                                             </span>
                                         </div>
                                     </div>
@@ -187,11 +188,11 @@ export default function AdminDashboard() {
                                     <div className="flex gap-8 text-neutral-400">
                                         <div className="text-center">
                                             <Presentation className="w-5 h-5 mx-auto mb-1 opacity-40" />
-                                            <p className="text-[8px] font-bold uppercase tracking-widest">PPT</p>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest">Project Slide</p>
                                         </div>
                                         <div className="text-center">
                                             <Layers className="w-5 h-5 mx-auto mb-1 opacity-40" />
-                                            <p className="text-[8px] font-bold uppercase tracking-widest">Docs ({sub.other_files_urls?.length || 0})</p>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest">Other Files ({sub.other_files_urls?.length || 0})</p>
                                         </div>
                                     </div>
 

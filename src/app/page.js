@@ -8,6 +8,7 @@ export default function Home() {
     const [formData, setFormData] = useState({
         teamName: '',
         leaderName: '',
+        teamNumber: '',
     })
     const [pptFile, setPptFile] = useState(null)
     const [otherFiles, setOtherFiles] = useState([])
@@ -37,17 +38,23 @@ export default function Home() {
         e.preventDefault()
         if (!pptFile) return alert('Please upload your PPT file.')
 
+        // Format check: NSC followed by 2 digits
+        const teamNumRegex = /^NSC\d{2}$/
+        if (!teamNumRegex.test(formData.teamNumber)) {
+            return alert('Team Number must be in NSC00 format (e.g., NSC01, NSC12)')
+        }
+
         setUploading(true)
 
         try {
             const pptExt = pptFile.name.split('.').pop()
-            const pptPath = `${Date.now()}_${formData.teamName}_PPT.${pptExt}`
+            const pptPath = `${Date.now()}_${formData.teamNumber}_${formData.teamName}_PPT.${pptExt}`
             const { error: pptError } = await supabase.storage.from('submissions').upload(pptPath, pptFile)
             if (pptError) throw pptError
 
             const otherFilesUrls = []
             for (const file of otherFiles) {
-                const path = `${Date.now()}_${formData.teamName}_File_${file.name}`
+                const path = `${Date.now()}_${formData.teamNumber}_${formData.teamName}_File_${file.name}`
                 const { error: fileError } = await supabase.storage.from('submissions').upload(path, file)
                 if (fileError) throw fileError
                 otherFilesUrls.push(path)
@@ -56,6 +63,7 @@ export default function Home() {
             const { error: dbError } = await supabase.from('submissions').insert([{
                 team_name: formData.teamName,
                 leader_name: formData.leaderName,
+                team_number: formData.teamNumber,
                 ppt_url: pptPath,
                 other_files_urls: otherFilesUrls,
                 status: 'pending'
@@ -124,7 +132,18 @@ export default function Home() {
                     {/* Submission Form Section */}
                     <div className="lg:col-span-7">
                         <form onSubmit={handleSubmit} className="space-y-8 fade-in">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold opacity-60 ml-1 uppercase tracking-wider">Team Number</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        placeholder="e.g. NSC01"
+                                        className="formal-input"
+                                        value={formData.teamNumber}
+                                        onChange={(e) => setFormData({ ...formData, teamNumber: e.target.value.toUpperCase() })}
+                                    />
+                                </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold opacity-60 ml-1 uppercase tracking-wider">Team Name</label>
                                     <input
@@ -137,7 +156,7 @@ export default function Home() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold opacity-60 ml-1 uppercase tracking-wider">Team Leader Name</label>
+                                    <label className="text-sm font-bold opacity-60 ml-1 uppercase tracking-wider">Leader Name</label>
                                     <input
                                         required
                                         type="text"
